@@ -26,6 +26,7 @@ void stand();
 void motion_init();
 void sendServoCmd();
 void moveAllPosition(double* jointPositions, double duration);
+double jointLinearInterpolation(double initPos, double targetPos, double rate);
 }
 
 #endif

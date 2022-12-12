@@ -280,21 +280,14 @@ int main(int argc, char **argv)
     ros::Subscriber dsdh = n.subscribe("stand_cmd", 1,
             &RobotController::stand_command, &go1);
 
-
-
-    // Gazebo command publishers
-    ros::Publisher lowState_pub; //for rviz visualization
-
-    long motiontime = 0;
     int rate_count = 0;
-    int sin_count = 0;
-    float qInit[3] = {0};
-    float qDes[3] = {0};
-    float sin_mid_q[3] = {0.0, 1.2, -2.0};
-    float Kp[3] = {0};
-    float Kd[3] = {0};
+    int rate_count2 = 0;
+    int rate_count3 = 0;
+    float qInit[12] = {0};
+    float qDes[12] = {0};
+    float Kp[12] = {0};
+    float Kd[12] = {0};
 
-    bool initiated_flag = false; // initiate need time
     int count = 0;
 
     ros::Publisher pub = n.advertise<unitree_legged_msgs::LowCmd>("low_cmd", 1);
@@ -302,41 +295,14 @@ int main(int argc, char **argv)
     lowCmd.head[0] = 0xFE;
     lowCmd.head[1] = 0xEF;
     lowCmd.levelFlag = LOWLEVEL;
-
-    for(int i=0; i<4; i++){
-        lowCmd.motorCmd[i*3+0].mode = 0x0A;
-        lowCmd.motorCmd[i*3+0].Kp =  5;
-        lowCmd.motorCmd[i*3+0].dq = 0;
-        lowCmd.motorCmd[i*3+0].Kd = 1;
-        lowCmd.motorCmd[i*3+0].tau = 0;
-        lowCmd.motorCmd[i*3+1].mode = 0x0A;
-        lowCmd.motorCmd[i*3+1].Kp =  5;
-        lowCmd.motorCmd[i*3+1].dq = 0;
-        lowCmd.motorCmd[i*3+1].Kd = 1;
-        lowCmd.motorCmd[i*3+1].tau = 0;
-        lowCmd.motorCmd[i*3+2].mode = 0x0A;
-        lowCmd.motorCmd[i*3+2].Kp =  5;
-        lowCmd.motorCmd[i*3+2].dq = 0;
-        lowCmd.motorCmd[i*3+2].Kd = 1;
-        lowCmd.motorCmd[i*3+2].tau = 0;
+    for (int i=0;i < 12;i++){
+        lowCmd.motorCmd[i].mode = 0x0A;  // motor switch to servo (PMSM) mode
     }
 
-    double targetPos[12] = {0.0, 0.67, -1.3, -0.0, 0.67, -1.3,
+    float targetPos[12] = {0.0, 1.27, -2.69, -0.0, 1.27, -2.69,
+                      0.0, 1.27, -2.69, -0.0, 1.27, -2.69};
+    float stand[12] = {0.0, 0.67, -1.3, -0.0, 0.67, -1.3,
                       0.0, 0.67, -1.3, -0.0, 0.67, -1.3};
-    double duration = 2*1000;
-
-    double lastPos[12], percent;
-    for(int j=0; j<12; j++) lastPos[j] = lowState.motorState[j].q;
-    for(int i=1; i<=duration; i++){
-        if(!ros::ok()) break;
-        percent = (double)i/duration;
-        for(int j=0; j<12; j++){
-            lowCmd.motorCmd[j].q = lastPos[j]*(1-percent) + targetPos[j]*percent;
-        }
-        pub.publish(lowCmd);
-        ros::spinOnce();
-        usleep(1000);
-    }
 
     // Inverse Kinematics
     InverseKinematics go1_IK(body_dimensions, leg_dimensions);
@@ -344,50 +310,113 @@ int main(int argc, char **argv)
 
     long long time_ms = 0;  //time, ms
     ofstream timePoseData;
-    timePoseData.open("RPYTommy_EXPERIMENT.csv");
-    timePoseData << "t_ms;t_ros_secs;roll;pitch;rollref;pitchref;thighFR;thighFL;RRthigh;RLthigh \n";
+    timePoseData.open("RPYTommy_TUNING.csv");
+
+    timePoseData << "time";
+    for (int i=0;i<12;i++){
+        timePoseData << ";q" << i << ";qref" << i ;
+    }
+    timePoseData << "\n";
 
     while (ros::ok())
     {
-
-        if (initiated_flag == true)
-        {
-//            motiontime += 2;
-
-//            lowCmd.motorCmd[FR_0].tau = -0.65f;
-//            lowCmd.motorCmd[FL_0].tau = +0.65f;
-//            lowCmd.motorCmd[RR_0].tau = -0.65f;
-//            lowCmd.motorCmd[RL_0].tau = +0.65f;
-
-//            lowCmd.motorCmd[FR_2].q = -M_PI / 2 + 0.5 * sin(2 * M_PI / 5.0 * motiontime * 1e-3);
-//            lowCmd.motorCmd[FR_2].dq = 0.0;
-//            lowCmd.motorCmd[FR_2].Kp = 5.0;
-//            lowCmd.motorCmd[FR_2].Kd = 1.0;
-
-//            lowCmd.motorCmd[FR_0].q = 0.0;
-//            lowCmd.motorCmd[FR_0].dq = 0.0;
-//            lowCmd.motorCmd[FR_0].Kp = 5.0;
-//            lowCmd.motorCmd[FR_0].Kd = 1.0;
-
-//            lowCmd.motorCmd[FR_1].q = 0.0;
-//            lowCmd.motorCmd[FR_1].dq = 0.0;
-//            lowCmd.motorCmd[FR_1].Kp = 5.0;
-//            lowCmd.motorCmd[FR_1].Kd = 1.0;
-              cout << "In main loop" << endl;
-        }
-
         count++;
-        if (count > 10)
-        {
-            count = 10;
-            initiated_flag = true;
+        if( count >= 0){
+            // first, get record initial position
+            if( count >= 0 && count < 10){
+                cout << "count 0-10" << endl;
+                for(int j=0; j<12; j++){
+                    qInit[j] = lowState.motorState[j].q;
+                }
+            }
+            // second, move to the origin point of a sine movement with Kp Kd
+            if( count >= 10 && count < 400){
+                cout << "count 10-400" << endl;
+                rate_count++;
+                double rate = rate_count/200.0;                       // needs count to 200
+                for(int i=0;i<12;i++){
+                    if (i%3==0){ // hips
+                        Kp[i]=15;
+                        Kd[i]=5;
+                        }
+                    else if(i%3==1){//thighs
+                        Kp[i]=15;
+                        Kd[i]=5;
+                    }
+                    else{ //calfs
+                        Kp[i]=15;
+                        Kd[i]=5;
+                    }
+                    qDes[i] = jointLinearInterpolation(qInit[i], targetPos[i], rate);
+                }
+            }
+            // last, do sine wave
+            if( count >= 400 && count < 800){
+                cout << "count 400+" << endl;
+                rate_count2++;
+                double rate = rate_count2/200.0;                       // needs count to 200
+                for(int i=0;i<12;i++){// hips
+                    if (i%3==0){
+                        Kp[i]=15;
+                        Kd[i]=5;
+                    }
+                    else if(i%3==1){//thighs
+                        Kp[i]=15;
+                        Kd[i]=5;
+                    }
+                    else{//calfs
+                        Kp[i]=15;
+                        Kd[i]=5;
+                    }
+                    qDes[i] = jointLinearInterpolation(targetPos[i], stand[i], rate);
+                }
+            }
+
+            if( count >= 800){
+                cout << "count 400+" << endl;
+                rate_count3++;
+                double rate = rate_count3/200.0;                       // needs count to 200
+                for(int i=0;i<12;i++){// hips
+                    if (i%3==0){
+                        Kp[i]=11;
+                        Kd[i]=3;
+                    }
+                    else if(i%3==1){//thighs
+                        Kp[i]=9;
+                        Kd[i]=3;
+                    }
+                    else{//calfs
+                        Kp[i]=14;
+                        Kd[i]=4;
+                    }
+                    qDes[i] = jointLinearInterpolation(stand[i], targetPos[i], rate);
+                }
+            }
+            timePoseData << count;
+            for (int i=0; i < 12;i++){
+                lowCmd.motorCmd[i].q = qDes[i];
+                lowCmd.motorCmd[i].dq = 0;
+                lowCmd.motorCmd[i].Kp = Kp[i];
+                lowCmd.motorCmd[i].Kd = Kd[i];
+                timePoseData << ";" << lowState.motorState[i].q << ";" << lowCmd.motorCmd[i].q;
+            }
+            timePoseData << "\n";
+
+            for (int i=0;i<12;i++){
+                if (i%3==0){
+                    continue;
+                }
+                else{
+                    lowCmd.motorCmd[i].tau = 0.0f;
+                }
+            }
         }
 
-        //pub.publish(lowCmd);
+        pub.publish(lowCmd);
 
         ros::spinOnce();
         loop_rate.sleep();
     }
-
+    timePoseData.close();
     return 0;
 }

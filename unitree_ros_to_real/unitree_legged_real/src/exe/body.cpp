@@ -71,5 +71,12 @@ void moveAllPosition(double* targetPos, double duration)
     }
 }
 
+double jointLinearInterpolation(double initPos, double targetPos, double rate)
+{
+    double p;
+    rate = std::min(std::max(rate, 0.0), 1.0);
+    p = initPos*(1-rate) + targetPos*rate;
+    return p;
+}
 
 }

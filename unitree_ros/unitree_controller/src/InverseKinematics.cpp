@@ -134,8 +134,8 @@ std::vector<double> InverseKinematics::inverse_kinematics(
             F=-1;
         }
         double theta1 = atan2(y, x) + atan2(F, d2 * pow((-1), i));
-        std::cout << "Leg " << i << ", x y z: " << x << "; " << y <<"; " << z << std::endl;
-        std::cout << "Leg " << i << ", theta1 : " << theta1 << std::endl;
+        //std::cout << "Leg " << i << ", x y z: " << x << "; " << y <<"; " << z << std::endl;
+        //std::cout << "Leg " << i << ", theta1 : " << theta1 << std::endl;
 
         double D = (H*H - a3*a3 - a4*a4) / (2*a3*a4);
         if (D>1){

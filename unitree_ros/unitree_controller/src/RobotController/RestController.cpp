@@ -48,10 +48,10 @@ void RestController::updateStateCommand(const sensor_msgs::Joy::ConstPtr& msg,
     lim[2] = 0.08;
     for (int i = 0; i < 3; i++){
         if ((double) vec1[i] < -lim[i] ){
-            cout << "bruh" << endl;
+            //cout << "bruh" << endl;
             state.body_local_position[i] = -lim[i];
         } else if ((double) vec1[i] > lim[i]){
-            cout << "aha"<< endl;
+            //cout << "aha"<< endl;
             state.body_local_position[i] = (float) lim[i];
         }
         else{
